@@ -1,0 +1,16 @@
+{
+  "domain": "hearth",
+  "name": "Hearth",
+  "codeowners": [
+    "@alexdlaird"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.meethearth.app/sensors/home-assistant",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/alexdlaird/ha-hearth/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

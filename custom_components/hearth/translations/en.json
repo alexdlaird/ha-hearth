@@ -1,0 +1,109 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your Hearth home",
+        "description": "Hearth follows the rooms you're in. Paste your home's Hearth API key: in the Hearth app, open Settings, then Manage home.",
+        "data": {
+          "api_key": "Hearth API key",
+          "api_url": "Hearth API address"
+        },
+        "data_description": {
+          "api_key": "The key your Hearth home shows once. Making a new key in the app stops the old one.",
+          "api_url": "Leave as is unless you've been given a different address."
+        }
+      },
+      "devices": {
+        "title": "Choose what Hearth gets",
+        "description": "Choose the thermostat Hearth runs and the room sensors it follows. You can change both later.",
+        "data": {
+          "thermostat": "Thermostat",
+          "sensors": "Room temperature sensors"
+        },
+        "data_description": {
+          "thermostat": "The thermostat Home Assistant controls. Hearth sets its mode and temperatures from the rooms you choose.",
+          "sensors": "Up to 10. Humidity and battery on the same device come along. Add each one to a room in the Hearth app."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update your Hearth API key",
+        "description": "Hearth no longer accepts the key. Paste the home's current key from the Hearth app (Settings, then Manage home).",
+        "data": {
+          "api_key": "Hearth API key"
+        },
+        "data_description": {
+          "api_key": "The home's current key, from the Hearth app (Settings, then Manage home). Making a new key in the app stops the old one."
+        }
+      },
+      "reconfigure": {
+        "title": "Update your Hearth connection",
+        "description": "Paste the home's current Hearth API key (Hearth app: Settings, then Manage home).",
+        "data": {
+          "api_key": "Hearth API key",
+          "api_url": "Hearth API address"
+        },
+        "data_description": {
+          "api_key": "The key your Hearth home shows once. Making a new key in the app stops the old one.",
+          "api_url": "Leave as is unless you've been given a different address."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Hearth didn't accept that key. Copy the current key from the Hearth app.",
+      "demo_home": "That key belongs to a demo home, which runs on a simulated thermostat. Connect a real home first.",
+      "cannot_connect": "Couldn't reach Hearth. Check the internet connection and try again.",
+      "nothing_chosen": "Choose a thermostat, room sensors, or both.",
+      "too_many_sensors": "Choose at most 10 sensors.",
+      "unknown": "Something unexpected went wrong."
+    },
+    "abort": {
+      "reauth_successful": "The key was updated.",
+      "single_instance_allowed": "Hearth is already set up. Each Home Assistant connects one Hearth home.",
+      "reconfigure_successful": "The connection was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Choose what Hearth gets",
+        "data": {
+          "thermostat": "Thermostat",
+          "sensors": "Room temperature sensors"
+        },
+        "data_description": {
+          "thermostat": "The thermostat Home Assistant controls. Hearth sets its mode and temperatures from the rooms you choose.",
+          "sensors": "Up to 10. Humidity and battery on the same device come along. Add each one to a room in the Hearth app."
+        }
+      }
+    },
+    "error": {
+      "nothing_chosen": "Choose a thermostat, room sensors, or both.",
+      "too_many_sensors": "Choose at most 10 sensors."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Bridge status",
+        "state": {
+          "ok": "OK",
+          "slowed_down": "Slowed down by Hearth",
+          "unreachable": "Hearth unreachable",
+          "post_refused": "Post refused by Hearth",
+          "thermostat_missing": "Thermostat missing",
+          "thermostat_unavailable": "Thermostat unavailable",
+          "setting_refused": "Setting not applied",
+          "sensors_not_added": "Sensors not added in Hearth"
+        }
+      },
+      "last_sync": {
+        "name": "Last sync"
+      }
+    }
+  },
+  "exceptions": {
+    "auth_failed": {
+      "message": "Hearth didn't accept the API key. Reauthenticate with the home's current key from the Hearth app."
+    }
+  }
+}

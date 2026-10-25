@@ -1,0 +1,54 @@
+name: Validate
+
+on:
+  workflow_call:
+    inputs:
+      checkout-repository:
+        required: false
+        type: string
+      checkout-ref:
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: none
+  pull-requests: none
+
+jobs:
+  validate:
+    name: Validate
+
+    env:
+      FORCE_COLOR: 1
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.checkout-repository || github.repository }}
+          ref: ${{ inputs.checkout-ref || github.sha }}
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Build test coverage
+        run: make install test
+      - name: Check code
+        run: make check
+      - name: Upload test coverage
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/test-results
+          report_type: test_results
