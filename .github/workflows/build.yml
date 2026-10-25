@@ -1,0 +1,76 @@
+name: Build
+
+run-name: Build ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: none
+  pull-requests: none
+
+jobs:
+  validate:
+    name: Validate
+    uses: ./.github/workflows/validate.yml
+    secrets: inherit
+
+  build:
+    name: Build (Home Assistant ${{ matrix.home-assistant }})
+
+    env:
+      FORCE_COLOR: 1
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - home-assistant: "2025.12.0"
+            python-version: "3.13"
+            harness: "0.13.298"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: make install
+      - name: Test Home Assistant ${{ matrix.home-assistant }}
+        run: make test HA_TEST_HARNESS=${{ matrix.harness }}
+
+  hacs:
+    name: HACS
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate HACS
+        uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+
+  hassfest:
+    name: Hassfest
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate with hassfest
+        uses: home-assistant/actions/hassfest@master

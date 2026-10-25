@@ -1,0 +1,22 @@
+{
+  "entity": {
+    "sensor": {
+      "status": {
+        "default": "mdi:home-thermometer-outline",
+        "state": {
+          "ok": "mdi:home-thermometer",
+          "unreachable": "mdi:cloud-off-outline",
+          "slowed_down": "mdi:timer-sand",
+          "post_refused": "mdi:alert-circle-outline",
+          "thermostat_missing": "mdi:thermostat-off",
+          "thermostat_unavailable": "mdi:thermostat-off",
+          "setting_refused": "mdi:alert-outline",
+          "sensors_not_added": "mdi:thermometer-plus"
+        }
+      },
+      "last_sync": {
+        "default": "mdi:cloud-sync-outline"
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+name: 🐛 Bug Report
+description: Found a bug? Help us squash it.
+labels: ["bug"]
+
+body:
+
+- type: markdown
+  attributes:
+    value: |
+      While we'd love to be able to support every person on their setups, that would simply be infeasible. Luckily, that's what the helpful community over at the [Home Assistant Community Forum](https://community.home-assistant.io) is for! Please ask there if what you're looking for is help with your Home Assistant setup or one of its integrations. You can refer to [`ha-hearth`'s own documentation](https://github.com/alexdlaird/ha-hearth#readme), including its bridge status table, to help you write the best possible question.
+
+      Consider [supporting the project](https://github.com/sponsors/alexdlaird) ❤ to have your request prioritized.
+
+- type: checkboxes
+  id: ack
+  attributes:
+    label: Acknowledgements
+    options:
+    - label: I have written a descriptive issue title
+      required: true
+    - label: I have searched [`ha-hearth`'s documentation](https://github.com/alexdlaird/ha-hearth#readme) for an answer
+      required: true
+    - label: I have searched [Issues](issues?q=is%3Aissue) to see if the bug has already been reported
+      required: true
+
+- type: input
+  id: home-assistant-version
+  attributes:
+    label: Home Assistant Version
+    placeholder: 2026.10.1
+  validations:
+    required: true
+
+- type: input
+  id: library-version
+  attributes:
+    label: ha-hearth Version
+    placeholder: 0.1.0
+  validations:
+    required: true
+
+- type: input
+  id: thermostat
+  attributes:
+    label: Thermostat and Integration
+    description: The thermostat, and the Home Assistant integration that controls it.
+    placeholder: Lennox S40, Matter
+  validations:
+    required: true
+
+- type: textarea
+  id: describe-the-bug
+  attributes:
+    label: Describe the Bug
+    description: A clear and concise description of what the bug is, including the bridge status and its detail.
+  validations:
+    required: true
+
+- type: textarea
+  id: steps-to-reproduce
+  attributes:
+    label: Steps to Reproduce
+    description: The steps that reproduce the behavior. Attach the integration's diagnostics (they never include the API key).
+  validations:
+    required: true
+
+- type: textarea
+  id: expected-behavior
+  attributes:
+    label: Expected Behavior
+    description: A brief description of what you expected to happen.
