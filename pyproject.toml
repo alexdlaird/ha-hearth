@@ -8,7 +8,9 @@ keywords = ["home-assistant", "hacs", "hearth", "thermostat", "climate", "room-s
 authors = [{ name = "Alex Laird", email = "contact@alexlaird.com" }]
 maintainers = [{ name = "Alex Laird", email = "contact@alexlaird.com" }]
 requires-python = ">=3.13.2"
-dependencies = []
+dependencies = [
+    "pyhearth==1.0.0"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Plugins",

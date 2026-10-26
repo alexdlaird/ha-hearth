@@ -7,8 +7,8 @@
 [![GitHub License](https://img.shields.io/github/license/alexdlaird/ha-hearth)](https://github.com/alexdlaird/ha-hearth/blob/main/LICENSE)
 
 `ha-hearth` is a Home Assistant integration for [Hearth](https://www.meethearth.app). It sends Hearth the room sensors
-(and, optionally, the thermostat) that Home Assistant already has, every minute, and applies any thermostat settings
-Hearth answers with using Home Assistant's own climate actions. Home Assistant only ever calls out to Hearth.
+(and, optionally, the thermostat) that Home Assistant already has, and applies any thermostat settings Hearth
+answers with using Home Assistant's own climate actions. Home Assistant only ever calls out to Hearth.
 
 ## Installation
 
