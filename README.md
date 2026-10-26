@@ -1,4 +1,4 @@
-<p align="center"><img alt="ha-hearth - A Home Assistant integration for Hearth" src="https://raw.githubusercontent.com/alexdlaird/ha-hearth/main/custom_components/hearth/brand/logo@2x.png" width="160" /></p>
+<p align="center"><img alt="ha-hearth - A Home Assistant integration for Hearth" src="https://raw.githubusercontent.com/alexdlaird/ha-hearth/main/docs/logo.png" /></p>
 
 [![Version](https://img.shields.io/github/v/release/alexdlaird/ha-hearth)](https://github.com/alexdlaird/ha-hearth/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5)](https://hacs.xyz)
