@@ -3,15 +3,15 @@ __license__ = "MIT"
 
 import logging
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
 from homeassistant.components.climate.const import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlowWithReload
-from homeassistant.const import CONF_API_KEY
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlowWithReload
+from homeassistant.const import CONF_API_KEY, CONF_SENSORS
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
@@ -19,7 +19,6 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
-from pyhearth.client import HearthClient
 from pyhearth.exception import (
     HearthAuthError,
     HearthConnectionError,
@@ -27,16 +26,18 @@ from pyhearth.exception import (
     HearthError,
 )
 
+from custom_components.hearth.client import async_hearth_client
 from custom_components.hearth.const import (
     CONF_API_URL,
-    CONF_SENSORS,
     CONF_THERMOSTAT,
     DEFAULT_API_URL,
     DOMAIN,
     MAX_SENSORS,
     NAME,
-    READINGS_SOURCE,
 )
+
+if TYPE_CHECKING:
+    from custom_components.hearth import HearthConfigEntry
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,8 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> "HearthOptionsFlow":
+    @override
+    def async_get_options_flow(config_entry: "HearthConfigEntry") -> "HearthOptionsFlow":
         """
         Get the flow that changes what Hearth gets.
 
@@ -62,6 +64,7 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         return HearthOptionsFlow()
 
+    @override
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """
         Ask for the home's Hearth API key (Hearth app: Settings, then Manage home).
@@ -72,10 +75,14 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_url = _api_url(user_input)
-            if (error := await _check_key(self.hass, user_input[CONF_API_KEY], api_url)) is None:
+            check = await _check_key(self.hass, user_input[CONF_API_KEY], api_url)
+            if check.error is None:
+                if check.home_id is not None:
+                    await self.async_set_unique_id(check.home_id)
+                    self._abort_if_unique_id_configured()
                 self._data = {CONF_API_KEY: user_input[CONF_API_KEY], CONF_API_URL: api_url}
                 return await self.async_step_devices()
-            errors["base"] = error
+            errors["base"] = check.error
 
         return self.async_show_form(step_id="user",
                                     data_schema=_key_schema(self.show_advanced_options),
@@ -119,10 +126,13 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_url = entry.data.get(CONF_API_URL) or DEFAULT_API_URL
-            if (error := await _check_key(self.hass, user_input[CONF_API_KEY], api_url)) is None:
+            check = await _check_key(self.hass, user_input[CONF_API_KEY], api_url)
+            if check.error is None:
+                await self._abort_if_another_home(entry, check.home_id)
                 return self.async_update_reload_and_abort(entry,
+                                                          unique_id=check.home_id or entry.unique_id,
                                                           data_updates={CONF_API_KEY: user_input[CONF_API_KEY]})
-            errors["base"] = error
+            errors["base"] = check.error
 
         return self.async_show_form(step_id="reauth_confirm", data_schema=_key_schema(False), errors=errors)
 
@@ -137,17 +147,33 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             api_url = _api_url(user_input, entry.data.get(CONF_API_URL))
-            if (error := await _check_key(self.hass, user_input[CONF_API_KEY], api_url)) is None:
+            check = await _check_key(self.hass, user_input[CONF_API_KEY], api_url)
+            if check.error is None:
+                await self._abort_if_another_home(entry, check.home_id)
                 return self.async_update_reload_and_abort(entry,
+                                                          unique_id=check.home_id or entry.unique_id,
                                                           data_updates={CONF_API_KEY: user_input[CONF_API_KEY],
                                                                         CONF_API_URL: api_url})
-            errors["base"] = error
+            errors["base"] = check.error
 
         return self.async_show_form(step_id="reconfigure",
                                     data_schema=self.add_suggested_values_to_schema(
                                         _key_schema(self.show_advanced_options),
                                         {CONF_API_URL: entry.data.get(CONF_API_URL) or DEFAULT_API_URL}),
                                     errors=errors)
+
+    async def _abort_if_another_home(self, entry: "HearthConfigEntry", home_id: str | None) -> None:
+        """
+        Stop when a key belongs to a different home than the one the entry is connected to.
+
+        An entry from before Hearth named its home can't be told apart, so its key is taken as the same home's.
+
+        :param entry: The entry being updated.
+        :param home_id: The home the new key belongs to, if Hearth said.
+        """
+        if home_id is not None and entry.unique_id is not None:
+            await self.async_set_unique_id(home_id)
+            self._abort_if_unique_id_mismatch(reason="another_home")
 
 
 class HearthOptionsFlow(OptionsFlowWithReload):
@@ -197,24 +223,35 @@ def _api_url(user_input: Mapping[str, Any], current: str | None = None) -> str:
     return str(user_input.get(CONF_API_URL) or current or DEFAULT_API_URL).rstrip("/")
 
 
+@dataclass(frozen=True)
+class KeyCheck:
+    """
+    What Hearth said about an API key.
+    """
+
+    #: Why the key can't be used, as a form error, if it can't.
+    error: str | None = None
+    #: The home the key belongs to, the same whatever its key (``None`` if Hearth didn't say).
+    home_id: str | None = None
+
+
 async def _check_key(hass: HomeAssistant,
                      api_key: str,
-                     api_url: str) -> str | None:
+                     api_url: str) -> KeyCheck:
     try:
-        await HearthClient(async_get_clientsession(hass), api_key, api_url, source=READINGS_SOURCE).check_key()
+        client = await async_hearth_client(hass, api_key, api_url)
+        return KeyCheck(home_id=await client.check_key())
     except HearthAuthError:
-        return "invalid_auth"
+        return KeyCheck("invalid_auth")
     except HearthDemoHomeError:
-        return "demo_home"
+        return KeyCheck("demo_home")
     except HearthConnectionError:
-        return "cannot_connect"
+        return KeyCheck("cannot_connect")
     except HearthError:
-        return "unknown"
+        return KeyCheck("unknown")
     except Exception:
         logger.exception("An unexpected error occurred checking the Hearth API key")
-        return "unknown"
-
-    return None
+        return KeyCheck("unknown")
 
 
 def _choice_error(choice: Mapping[str, Any]) -> str | None:

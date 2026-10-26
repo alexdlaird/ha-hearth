@@ -9,6 +9,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
 from custom_components.hearth.const import DOMAIN
 from tests.testcase import HearthTestCase
 
@@ -29,7 +31,7 @@ class TestConfigFlow(HearthTestCase):
         # GIVEN
         await self.given_thermostat(hass)
         sensors = self.given_temperature_sensors(hass, 1)
-        self.given_hearth_answers(aioclient_mock)
+        self.given_hearth_answers(aioclient_mock, headers=self.HOME)
         flow = await self.start(hass)
 
         # WHEN
@@ -45,6 +47,7 @@ class TestConfigFlow(HearthTestCase):
         assert FlowResultType.CREATE_ENTRY == created["type"]
         assert {"api_key": self.API_KEY, "api_url": "https://api.meethearth.app"} == created["data"]
         assert {"thermostat": self.THERMOSTAT, "sensors": sensors} == created["options"]
+        assert "home-1" == created["result"].unique_id
 
     @pytest.mark.parametrize(("answer", "error"), [
         ({"readings_status": 401}, "invalid_auth"),
@@ -154,6 +157,25 @@ class TestConfigFlow(HearthTestCase):
         assert "another-key" == entry.data["api_key"]
         assert "https://hearth.example.com" == entry.data["api_url"]
 
+    async def test_reconfigure_refused_key(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        entry = self.given_entry(hass)
+        self.given_hearth_answers(aioclient_mock, readings_status=401)
+        flow = await entry.start_reconfigure_flow(hass)
+
+        refused = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "wrong-key"})
+        self.given_hearth_answers(aioclient_mock)
+
+        # WHEN
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "right-key"})
+        await hass.async_block_till_done()
+
+        # THEN
+        assert {"base": "invalid_auth"} == refused["errors"]
+        assert "reconfigure_successful" == result["reason"], "the form takes another key after a refused one"
+        assert "right-key" == entry.data["api_key"]
+
     async def test_options(
             self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
         # GIVEN
@@ -173,3 +195,91 @@ class TestConfigFlow(HearthTestCase):
         assert {"base": "nothing_chosen"} == refused["errors"]
         assert FlowResultType.CREATE_ENTRY == result["type"]
         assert {"thermostat": None, "sensors": sensors} == entry.options
+
+
+class TestHome(HearthTestCase):
+    async def test_entry_keyed_on_the_home(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        await self.given_thermostat(hass)
+        self.given_hearth_answers(aioclient_mock, headers=self.HOME)
+        flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        devices = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": self.API_KEY})
+
+        # WHEN
+        keyed_on = hass.config_entries.flow.async_get(devices["flow_id"])["context"].get("unique_id")
+        created = await hass.config_entries.flow.async_configure(devices["flow_id"], {"thermostat": self.THERMOSTAT,
+                                                                                      "sensors": []})
+
+        # THEN
+        assert "home-1" == keyed_on, "keyed on the home before the entry exists"
+        assert "home-1" == created["result"].unique_id
+
+    @pytest.mark.parametrize("source", ["reauth", "reconfigure"])
+    async def test_key_for_another_home_refused(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, source: str) -> None:
+        # GIVEN
+        entry = self.given_entry(hass, unique_id="home-1")
+        self.given_hearth_answers(aioclient_mock, headers=self.OTHER_HOME)
+        flow = await (entry.start_reauth_flow(hass) if source == "reauth" else entry.start_reconfigure_flow(hass))
+
+        # WHEN
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "another-homes-key"})
+
+        # THEN
+        assert FlowResultType.ABORT == result["type"]
+        assert "another_home" == result["reason"]
+        assert self.API_KEY == entry.data["api_key"], "the entry stays on its own home's key"
+
+    async def test_new_key_for_the_same_home_taken(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        entry = self.given_entry(hass, unique_id="home-1")
+        self.given_hearth_answers(aioclient_mock, headers=self.HOME)
+        flow = await entry.start_reauth_flow(hass)
+
+        # WHEN
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "new-key"})
+        await hass.async_block_till_done()
+
+        # THEN
+        assert "reauth_successful" == result["reason"]
+        assert "new-key" == entry.data["api_key"]
+
+    async def test_entry_from_before_home_ids_takes_any_key_and_its_home(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        entry = self.given_entry(hass)
+        self.given_hearth_answers(aioclient_mock, headers=self.OTHER_HOME)
+        flow = await entry.start_reauth_flow(hass)
+
+        # WHEN
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "new-key"})
+        await hass.async_block_till_done()
+
+        # THEN
+        assert "reauth_successful" == result["reason"]
+        assert "home-2" == entry.unique_id, "it can't tell homes apart yet, so it learns this one"
+
+    async def test_same_home_set_up_again_refused(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        MockConfigEntry(domain=DOMAIN, title="Hearth", unique_id="home-1").add_to_hass(hass)
+        self.given_hearth_answers(aioclient_mock, headers=self.HOME)
+        flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+
+        # WHEN / THEN
+        assert FlowResultType.ABORT == flow["type"], "single instance already stops a second entry"
+
+    async def test_existing_entry_keyed_on_the_home_after_a_sync(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        await self.given_thermostat(hass)
+        entry = self.given_entry(hass)
+        self.given_hearth_answers(aioclient_mock, headers=self.HOME)
+
+        # WHEN
+        await self.when_set_up(hass, entry)
+
+        # THEN
+        assert "home-1" == entry.unique_id

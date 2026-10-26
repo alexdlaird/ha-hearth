@@ -6,7 +6,7 @@ from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.climate import DATA_COMPONENT
-from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_API_KEY, CONF_SENSORS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.setup import async_setup_component
@@ -15,7 +15,6 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.hearth.const import (
     CONF_API_URL,
-    CONF_SENSORS,
     CONF_THERMOSTAT,
     DEFAULT_API_URL,
     DOMAIN,
@@ -26,6 +25,8 @@ from tests.fakethermostat import FakeThermostat
 
 class HearthTestCase:
     API_KEY = "test-hearth-api-key"
+    HOME = {"Hearth-Home": "home-1"}
+    OTHER_HOME = {"Hearth-Home": "home-2"}
     BRIDGE_URL = f"{DEFAULT_API_URL}/v1/bridge"
     READINGS_URL = f"{DEFAULT_API_URL}/v1/readings"
     THERMOSTAT = "climate.hallway"
@@ -46,9 +47,11 @@ class HearthTestCase:
     def given_entry(self,
                     hass: HomeAssistant,
                     thermostat: str | None = THERMOSTAT,
-                    sensors: list[str] | None = None) -> MockConfigEntry:
+                    sensors: list[str] | None = None,
+                    unique_id: str | None = None) -> MockConfigEntry:
         entry = MockConfigEntry(domain=DOMAIN,
                                 title="Hearth",
+                                unique_id=unique_id,
                                 data={CONF_API_KEY: self.API_KEY, CONF_API_URL: DEFAULT_API_URL},
                                 options={CONF_THERMOSTAT: thermostat, CONF_SENSORS: sensors or []})
         entry.add_to_hass(hass)

@@ -58,6 +58,8 @@
     },
     "abort": {
       "reauth_successful": "The key was updated.",
+      "another_home": "That key belongs to a different Hearth home. Use this home's key, or remove the integration and add the other home.",
+      "already_configured": "This Hearth home is already set up.",
       "single_instance_allowed": "Hearth is already set up. Each Home Assistant connects one Hearth home.",
       "reconfigure_successful": "The connection was updated."
     }
@@ -101,7 +103,16 @@
       }
     }
   },
+  "issues": {
+    "thermostat_missing": {
+      "title": "Hearth's thermostat is missing",
+      "description": "Home Assistant has had no {entity_id} for hours, so Hearth can't run the thermostat. If it was removed or renamed, choose the thermostat again in the Hearth integration's options (Settings, then Devices & services, then Hearth, then Configure)."
+    }
+  },
   "exceptions": {
+    "cannot_connect": {
+      "message": "Couldn't reach Hearth. Home Assistant tries again shortly."
+    },
     "auth_failed": {
       "message": "Hearth didn't accept the API key. Reauthenticate with the home's current key from the Hearth app."
     }
