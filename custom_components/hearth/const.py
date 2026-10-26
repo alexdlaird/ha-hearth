@@ -17,8 +17,6 @@ CONF_API_URL: Final = "api_url"
 CONF_THERMOSTAT: Final = "thermostat"
 CONF_SENSORS: Final = "sensors"
 
-#: The version of the bridge protocol Hearth's ``/v1/bridge`` endpoint speaks.
-PROTOCOL: Final = 1
 #: How this Home Assistant names itself as a readings source in Hearth.
 READINGS_SOURCE: Final = "home-assistant"
 READINGS_SOURCE_NAME: Final = "Home Assistant"
@@ -29,7 +27,6 @@ MAX_SENSORS: Final = 10
 #: post, so posts stay under Hearth's limit of 4 a minute.
 SYNC_INTERVAL: Final = timedelta(seconds=60)
 MIN_POST_GAP: Final = timedelta(seconds=20)
-REQUEST_TIMEOUT: Final = 15
 #: How long a climate action may take before it counts as failed (the thermostat's own integration may be slow).
 SERVICE_TIMEOUT: Final = 30
 #: How many times one setting from Hearth is tried when the thermostat fails to take it for a passing reason.
@@ -40,8 +37,6 @@ SENSOR_STALE_AFTER: Final = timedelta(minutes=30)
 #: Who refused a setting, as reported to Hearth: the integration's own checks, or the thermostat itself.
 REFUSED_BY_CHECK: Final = "check"
 REFUSED_BY_THERMOSTAT: Final = "thermostat"
-#: When Hearth asks to slow down without saying for how long.
-DEFAULT_RETRY_AFTER: Final = 60
 
 #: Hearth's settings are applied only inside this band (and the thermostat's own limits), whatever Hearth sends.
 SAFE_MIN_C: Final = 7.0

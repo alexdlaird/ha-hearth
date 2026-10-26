@@ -25,12 +25,17 @@ from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
+from pyhearth.client import DEFAULT_RETRY_AFTER, HearthClient
+from pyhearth.exception import (
+    HearthAuthError,
+    HearthConnectionError,
+    HearthError,
+    HearthRateLimitedError,
+)
 
-from custom_components.hearth.api import HearthClient
 from custom_components.hearth.const import (
     CONF_SENSORS,
     CONF_THERMOSTAT,
-    DEFAULT_RETRY_AFTER,
     DOMAIN,
     MAX_ATTEMPTS,
     MIN_POST_GAP,
@@ -40,13 +45,7 @@ from custom_components.hearth.const import (
     SYNC_INTERVAL,
     BridgeStatus,
 )
-from custom_components.hearth.exception import (
-    HearthAuthError,
-    HearthConnectionError,
-    HearthError,
-    HearthRateLimitedError,
-    HearthSettingError,
-)
+from custom_components.hearth.exception import HearthSettingError
 from custom_components.hearth.sync import (
     Setting,
     already_shows,
@@ -170,7 +169,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
         try:
             readings = [] if self._wait_until is not None else sensor_readings(self.hass, self.sensors, now)
             if readings:
-                not_added = (await self.client.async_post_readings(readings)).not_added
+                not_added = (await self.client.post_readings(readings)).not_added
                 if not_added:
                     statuses.append((BridgeStatus.SENSORS_NOT_ADDED, ", ".join(not_added)))
         except HearthError as e:
@@ -205,7 +204,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
         unit = self.hass.config.units.temperature_unit
         step = setpoint_step(self.hass, state, unit)
         post = thermostat_post(state, unit, step, device_key(self.hass, self.thermostat))
-        desired = await self.client.async_sync_thermostat(post, self._refused)
+        desired = await self.client.sync_thermostat(post, self._refused)
         self._refused = None
         if not is_available(state):
             return desired, [(BridgeStatus.THERMOSTAT_UNAVAILABLE, None)]

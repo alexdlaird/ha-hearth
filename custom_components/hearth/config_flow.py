@@ -19,8 +19,14 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from pyhearth.client import HearthClient
+from pyhearth.exception import (
+    HearthAuthError,
+    HearthConnectionError,
+    HearthDemoHomeError,
+    HearthError,
+)
 
-from custom_components.hearth.api import HearthClient
 from custom_components.hearth.const import (
     CONF_API_URL,
     CONF_SENSORS,
@@ -29,12 +35,7 @@ from custom_components.hearth.const import (
     DOMAIN,
     MAX_SENSORS,
     NAME,
-)
-from custom_components.hearth.exception import (
-    HearthAuthError,
-    HearthConnectionError,
-    HearthDemoHomeError,
-    HearthError,
+    READINGS_SOURCE,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,7 +201,7 @@ async def _check_key(hass: HomeAssistant,
                      api_key: str,
                      api_url: str) -> str | None:
     try:
-        await HearthClient(async_get_clientsession(hass), api_key, api_url).async_check_key()
+        await HearthClient(async_get_clientsession(hass), api_key, api_url, source=READINGS_SOURCE).check_key()
     except HearthAuthError:
         return "invalid_auth"
     except HearthDemoHomeError:

@@ -6,6 +6,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/alexdlaird/ha-hearth/compare/0.1.0...HEAD)
 
+### Changed
+
+- Hearth's API client is now its own package, [`pyhearth`](https://github.com/alexdlaird/pyhearth).
+
 ## [0.1.0](https://github.com/alexdlaird/ha-hearth/releases/tag/0.1.0) - 2026-10-25
 
 - First release of `ha-hearth`.

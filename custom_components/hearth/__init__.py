@@ -5,9 +5,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from pyhearth.client import HearthClient
 
-from custom_components.hearth.api import HearthClient
-from custom_components.hearth.const import CONF_API_URL, DEFAULT_API_URL, PLATFORMS
+from custom_components.hearth.const import (
+    CONF_API_URL,
+    DEFAULT_API_URL,
+    PLATFORMS,
+    READINGS_SOURCE,
+    READINGS_SOURCE_NAME,
+)
 from custom_components.hearth.coordinator import HearthCoordinator
 
 type HearthConfigEntry = ConfigEntry[HearthCoordinator]
@@ -23,7 +29,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: HearthConfigEntry) -> bo
     """
     client = HearthClient(async_get_clientsession(hass),
                           entry.data[CONF_API_KEY],
-                          entry.data.get(CONF_API_URL) or DEFAULT_API_URL)
+                          entry.data.get(CONF_API_URL) or DEFAULT_API_URL,
+                          source=READINGS_SOURCE,
+                          source_name=READINGS_SOURCE_NAME)
     coordinator = HearthCoordinator(hass, entry, client)
     coordinator.async_track_thermostat()
     await coordinator.async_config_entry_first_refresh()
