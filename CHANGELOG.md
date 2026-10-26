@@ -6,6 +6,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/alexdlaird/ha-hearth/compare/1.0.1...HEAD)
 
+### Changed
+
+- Listed as "Hearth: Room Thermostat", the app's full name.
+
 ## [1.0.1](https://github.com/alexdlaird/ha-hearth/compare/1.0.0...1.0.1) - 2026-10-26
 
 ### Changed

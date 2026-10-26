@@ -1,6 +1,6 @@
 {
   "domain": "hearth",
-  "name": "Hearth",
+  "name": "Hearth: Room Thermostat",
   "codeowners": [
     "@alexdlaird"
   ],
