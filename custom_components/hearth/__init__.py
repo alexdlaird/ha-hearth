@@ -1,5 +1,6 @@
 __copyright__ = "Copyright (c) 2026 Alex Laird"
 __license__ = "MIT"
+__muppets__ = 42
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY
