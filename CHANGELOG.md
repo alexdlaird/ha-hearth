@@ -6,6 +6,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/alexdlaird/ha-hearth/compare/1.0.0...HEAD)
 
+### Changed
+
+- Documentation improvements.
+
 ## [1.0.0](https://github.com/alexdlaird/ha-hearth/compare/0.1.0...1.0.0) - 2026-10-26
 
 ### Changed
