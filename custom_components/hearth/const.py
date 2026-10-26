@@ -15,7 +15,6 @@ SITE_URL: Final = "https://www.meethearth.app"
 
 CONF_API_URL: Final = "api_url"
 CONF_THERMOSTAT: Final = "thermostat"
-CONF_SENSORS: Final = "sensors"
 
 #: How this Home Assistant names itself as a readings source in Hearth.
 READINGS_SOURCE: Final = "home-assistant"
@@ -29,6 +28,11 @@ SYNC_INTERVAL: Final = timedelta(seconds=60)
 MIN_POST_GAP: Final = timedelta(seconds=20)
 #: How long a climate action may take before it counts as failed (the thermostat's own integration may be slow).
 SERVICE_TIMEOUT: Final = 30
+#: How long the chosen thermostat may be missing from Home Assistant (removed, or renamed) before it's raised as a
+#: repair: long enough that it isn't Home Assistant still starting, or the thermostat's own integration reloading.
+THERMOSTAT_MISSING_REPAIR_AFTER: Final = timedelta(hours=6)
+#: The repair issue raised when the chosen thermostat has been missing for ``THERMOSTAT_MISSING_REPAIR_AFTER``.
+THERMOSTAT_MISSING_ISSUE: Final = "thermostat_missing"
 #: How many times one setting from Hearth is tried when the thermostat fails to take it for a passing reason.
 MAX_ATTEMPTS: Final = 3
 #: A temperature or humidity not reported for this long is left out of a post (a reading older than a day makes Hearth

@@ -1,18 +1,19 @@
 __copyright__ = "Copyright (c) 2026 Alex Laird"
 __license__ = "MIT"
+__muppets__ = 42
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from pyhearth.client import HearthClient
+from homeassistant.helpers import issue_registry as ir
 
+from custom_components.hearth.client import async_hearth_client
 from custom_components.hearth.const import (
     CONF_API_URL,
     DEFAULT_API_URL,
+    DOMAIN,
     PLATFORMS,
-    READINGS_SOURCE,
-    READINGS_SOURCE_NAME,
+    THERMOSTAT_MISSING_ISSUE,
 )
 from custom_components.hearth.coordinator import HearthCoordinator
 
@@ -27,11 +28,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: HearthConfigEntry) -> bo
     :param entry: The Hearth home's config entry.
     :return: ``True`` once it's set up.
     """
-    client = HearthClient(async_get_clientsession(hass),
-                          entry.data[CONF_API_KEY],
-                          entry.data.get(CONF_API_URL) or DEFAULT_API_URL,
-                          source=READINGS_SOURCE,
-                          source_name=READINGS_SOURCE_NAME)
+    client = await async_hearth_client(hass,
+                                       entry.data[CONF_API_KEY],
+                                       entry.data.get(CONF_API_URL) or DEFAULT_API_URL)
     coordinator = HearthCoordinator(hass, entry, client)
     coordinator.async_track_thermostat()
     await coordinator.async_config_entry_first_refresh()
@@ -50,3 +49,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: HearthConfigEntry) -> b
     :return: ``True`` once it's unloaded.
     """
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: HearthConfigEntry) -> None:
+    """
+    Clear what the bridge raised once the Hearth home is removed.
+
+    :param hass: Home Assistant.
+    :param entry: The removed config entry.
+    """
+    ir.async_delete_issue(hass, DOMAIN, THERMOSTAT_MISSING_ISSUE)

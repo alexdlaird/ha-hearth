@@ -10,16 +10,29 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.climate.const import ClimateEntityFeature, HVACMode
 from homeassistant.config_entries import SOURCE_REAUTH
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.hearth.const import MAX_ATTEMPTS, REFUSED_BY_CHECK, REFUSED_BY_THERMOSTAT, BridgeStatus
+from custom_components.hearth.const import (
+    DOMAIN,
+    MAX_ATTEMPTS,
+    REFUSED_BY_CHECK,
+    REFUSED_BY_THERMOSTAT,
+    THERMOSTAT_MISSING_ISSUE,
+    THERMOSTAT_MISSING_REPAIR_AFTER,
+    BridgeStatus,
+)
 from tests.testcase import HearthTestCase
 
 
 class TestSync(HearthTestCase):
+    #: How a thermostat refuses a range it can't take.
+    REFUSED_RANGE = ServiceValidationError(translation_domain="climate",
+                                           translation_key="low_temp_higher_than_high_temp")
+
     def heat_cool(self, low: float = 68.0, high: float = 75.0, **extra: Any) -> dict[str, Any]:
         return {"hvac_mode": "heat_cool", "target_temp_low": low, "target_temp_high": high, "unit": "°F",
                 "expires_at": self.EXPIRES_AT, **extra}
@@ -214,7 +227,7 @@ class TestSync(HearthTestCase):
                                                freezer: FrozenDateTimeFactory) -> None:
         # GIVEN
         await self.given_fahrenheit(hass)
-        thermostat = await self.given_thermostat(hass, fails_with=ServiceValidationError("deadband too small"))
+        thermostat = await self.given_thermostat(hass, fails_with=self.REFUSED_RANGE)
         self.given_hearth_answers(aioclient_mock, desired=self.heat_cool())
 
         # WHEN
@@ -292,6 +305,41 @@ class TestSync(HearthTestCase):
         # THEN
         assert [] == self.posts(aioclient_mock, self.BRIDGE_URL)
         self.assert_status(hass, BridgeStatus.THERMOSTAT_MISSING)
+
+    async def test_missing_thermostat_raised_as_a_repair_after_six_hours(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, freezer: FrozenDateTimeFactory,
+            issue_registry: ir.IssueRegistry) -> None:
+        # GIVEN
+        self.given_hearth_answers(aioclient_mock)
+        await self.when_set_up(hass, self.given_entry(hass))
+
+        # WHEN
+        await self.when_time_passes(hass, freezer, THERMOSTAT_MISSING_REPAIR_AFTER - timedelta(minutes=5))
+        before = issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE)
+        await self.when_time_passes(hass, freezer, timedelta(minutes=10))
+
+        # THEN
+        assert before is None, "not while it may be Home Assistant starting or an integration reloading"
+        issue = issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE)
+        assert issue is not None
+        assert {"entity_id": self.THERMOSTAT} == issue.translation_placeholders
+
+    async def test_missing_thermostat_repair_cleared_once_it_is_back(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, freezer: FrozenDateTimeFactory,
+            issue_registry: ir.IssueRegistry) -> None:
+        # GIVEN
+        self.given_hearth_answers(aioclient_mock)
+        await self.when_set_up(hass, self.given_entry(hass))
+        await self.when_time_passes(hass, freezer, THERMOSTAT_MISSING_REPAIR_AFTER + timedelta(minutes=5))
+        raised = issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE)
+
+        # WHEN
+        await self.given_thermostat(hass)
+        await self.when_time_passes(hass, freezer)
+
+        # THEN
+        assert raised is not None
+        assert issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE) is None
 
     async def test_thermostat_change_posted_after_gap(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker,
                                                       freezer: FrozenDateTimeFactory) -> None:
@@ -399,13 +447,13 @@ class TestSync(HearthTestCase):
         assert ["sensor.porch_temperature"] == sent
 
     async def test_other_device_entities_ignored(self, hass: HomeAssistant,
-                                                 aioclient_mock: AiohttpClientMocker) -> None:
+                                                 aioclient_mock: AiohttpClientMocker,
+                                                 entity_registry: er.EntityRegistry) -> None:
         # GIVEN
         temperature = self.given_sensor_device(hass, humidity=None, battery=None)
-        registry = er.async_get(hass)
-        entry = registry.async_get(temperature)
+        entry = entity_registry.async_get(temperature)
         assert entry is not None
-        switch = registry.async_get_or_create("switch", "test", "office_switch", device_id=entry.device_id)
+        switch = entity_registry.async_get_or_create("switch", "test", "office_switch", device_id=entry.device_id)
         hass.states.async_set(switch.entity_id, "on")
         self.given_hearth_answers(aioclient_mock)
 
@@ -495,14 +543,16 @@ class TestSync(HearthTestCase):
         (400, BridgeStatus.POST_REFUSED),
         (403, BridgeStatus.POST_REFUSED),
     ])
-    async def test_failed_post_reported(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, status: int,
-                                        expected: str) -> None:
+    async def test_failed_post_reported(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker,
+                                        freezer: FrozenDateTimeFactory, status: int, expected: str) -> None:
         # GIVEN
         await self.given_thermostat(hass)
-        self.given_hearth_answers(aioclient_mock, bridge_status=status)
+        self.given_hearth_answers(aioclient_mock)
+        await self.when_set_up(hass, self.given_entry(hass))
 
         # WHEN
-        await self.when_set_up(hass, self.given_entry(hass))
+        self.given_hearth_answers(aioclient_mock, bridge_status=status)
+        await self.when_time_passes(hass, freezer)
 
         # THEN
         self.assert_status(hass, expected)
@@ -545,8 +595,10 @@ class TestSync(HearthTestCase):
                                          freezer: FrozenDateTimeFactory) -> None:
         # GIVEN
         await self.given_thermostat(hass)
-        self.given_hearth_answers(aioclient_mock, exc=TimeoutError())
+        self.given_hearth_answers(aioclient_mock)
         await self.when_set_up(hass, self.given_entry(hass))
+        self.given_hearth_answers(aioclient_mock, exc=TimeoutError())
+        await self.when_time_passes(hass, freezer)
         during = hass.states.get(self.STATUS)
 
         # WHEN
@@ -557,6 +609,20 @@ class TestSync(HearthTestCase):
         assert during is not None
         assert BridgeStatus.UNREACHABLE == during.state
         self.assert_status(hass, BridgeStatus.OK)
+
+    async def test_setup_retried_while_hearth_is_unreachable(self, hass: HomeAssistant,
+                                                             aioclient_mock: AiohttpClientMocker) -> None:
+        # GIVEN
+        await self.given_thermostat(hass)
+        temperature = self.given_sensor_device(hass)
+        self.given_hearth_answers(aioclient_mock, exc=TimeoutError())
+        entry = self.given_entry(hass, sensors=[temperature])
+
+        # WHEN
+        await self.when_set_up(hass, entry)
+
+        # THEN
+        assert ConfigEntryState.SETUP_RETRY == entry.state, "Home Assistant tries again until Hearth is reached"
 
     async def test_last_sync_kept_through_outage(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker,
                                                  freezer: FrozenDateTimeFactory) -> None:
@@ -577,11 +643,12 @@ class TestSync(HearthTestCase):
         assert synced.state == after.state
 
     async def test_thermostat_device_posted_as_a_hash(self, hass: HomeAssistant,
-                                                      aioclient_mock: AiohttpClientMocker) -> None:
+                                                      aioclient_mock: AiohttpClientMocker,
+                                                      entity_registry: er.EntityRegistry) -> None:
         # GIVEN
         await self.given_thermostat(hass, unique_id="SN-4417-0092")
         self.given_hearth_answers(aioclient_mock)
-        entry = er.async_get(hass).async_get(self.THERMOSTAT)
+        entry = entity_registry.async_get(self.THERMOSTAT)
         assert entry is not None
 
         # WHEN
@@ -594,7 +661,7 @@ class TestSync(HearthTestCase):
         assert entry.unique_id not in str(thermostat), "the unique id itself never leaves Home Assistant"
 
     @pytest.mark.parametrize(("thermostat_options", "desired_changes", "by"), [
-        ({"fails_with": ServiceValidationError("deadband too small")}, {}, REFUSED_BY_THERMOSTAT),
+        ({"fails_with": REFUSED_RANGE}, {}, REFUSED_BY_THERMOSTAT),
         ({}, {"hvac_mode": "auto"}, REFUSED_BY_CHECK),
     ])
     async def test_refused_setting_reported_once(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker,

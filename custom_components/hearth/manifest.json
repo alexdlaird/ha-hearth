@@ -11,8 +11,8 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/alexdlaird/ha-hearth/issues",
   "requirements": [
-    "pyhearth==1.0.0"
+    "pyhearth==1.1.0"
   ],
   "single_config_entry": true,
-  "version": "1.0.2"
+  "version": "1.1.0"
 }

@@ -9,7 +9,7 @@ authors = [{ name = "Alex Laird", email = "contact@alexlaird.com" }]
 maintainers = [{ name = "Alex Laird", email = "contact@alexlaird.com" }]
 requires-python = ">=3.13.2"
 dependencies = [
-    "pyhearth==1.0.0"
+    "pyhearth==1.1.0"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

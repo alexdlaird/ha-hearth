@@ -83,8 +83,9 @@ def is_available(state: State | None) -> TypeGuard[State]:
 
 def is_placeholder(state: State) -> bool:
     """
-    Whether a state is the placeholder Home Assistant restores at startup, before the entity's own integration has
-    loaded.
+    Whether a state is the placeholder Home Assistant restores at startup.
+
+    Home Assistant restores it before the entity's own integration has loaded.
 
     :param state: The entity's state.
     :return: ``True`` for a restored placeholder.
@@ -96,8 +97,10 @@ def setpoint_step(hass: HomeAssistant,
                   state: State,
                   unit: str) -> float | None:
     """
-    The thermostat's setpoint step in Home Assistant's unit. Home Assistant converts a climate entity's temperatures to
-    its own unit, but not its step: a 0.5 °C step is 0.9 °F in a °F home.
+    The thermostat's setpoint step in Home Assistant's unit.
+
+    Home Assistant converts a climate entity's temperatures to its own unit, but not its step: a 0.5 °C step is 0.9 °F
+    in a °F home.
 
     :param hass: Home Assistant.
     :param state: The thermostat's state.
@@ -112,7 +115,7 @@ def setpoint_step(hass: HomeAssistant,
 
     if step is None:
         step = _number(entity.target_temperature_step)
-    native = entity.temperature_unit
+    native = _native_unit(entity)
     if step is None or native == unit:
         return step
     elif native == UnitOfTemperature.CELSIUS and unit == UnitOfTemperature.FAHRENHEIT:
@@ -162,8 +165,10 @@ def thermostat_post(state: State,
 def device_key(hass: HomeAssistant,
                entity_id: str) -> str | None:
     """
-    The thermostat's device, as Hearth tells one thermostat from another across homes: a SHA-256 of its integration
-    and unique id, so no serial number leaves Home Assistant, and the same from any Home Assistant install.
+    The thermostat's device, as Hearth tells one thermostat from another across homes.
+
+    It's a SHA-256 of its integration and unique id, so no serial number leaves Home Assistant, and the same from any
+    Home Assistant install.
 
     :param hass: Home Assistant.
     :param entity_id: The thermostat.
@@ -179,9 +184,10 @@ def sensor_readings(hass: HomeAssistant,
                     entity_ids: list[str],
                     now: datetime) -> list[dict[str, Any]]:
     """
-    The chosen temperature sensors as Hearth's ``/v1/readings`` endpoint takes them, each with the humidity and battery
-    readings of the device it's on. A sensor that's unavailable, not a number, in a unit Hearth doesn't take, or not
-    reported for ``SENSOR_STALE_AFTER`` is left out.
+    The chosen temperature sensors as Hearth's ``/v1/readings`` endpoint takes them.
+
+    Each comes with the humidity and battery readings of the device it's on. A sensor that's unavailable, not a
+    number, in a unit Hearth doesn't take, or not reported for ``SENSOR_STALE_AFTER`` is left out.
 
     :param hass: Home Assistant.
     :param entity_ids: The temperature sensors.
@@ -217,9 +223,10 @@ def check_setting(desired: Mapping[str, Any],
                   state: State,
                   unit: str) -> Setting:
     """
-    Check a setting from Hearth against the thermostat. It's applied only in Home Assistant's unit, for a mode the
-    thermostat offers, with setpoints of the shape it takes, and only inside its limits and the safe band. A fan mode
-    the thermostat doesn't offer is left out.
+    Check a setting from Hearth against the thermostat.
+
+    It's applied only in Home Assistant's unit, for a mode the thermostat offers, with setpoints of the shape it takes,
+    and only inside its limits and the safe band. A fan mode the thermostat doesn't offer is left out.
 
     :param desired: The setting Hearth answered with.
     :param state: The thermostat's state.
@@ -252,8 +259,9 @@ def already_shows(setting: Setting,
                   step: float | None,
                   unit: str) -> bool:
     """
-    Whether the thermostat already shows a setting, so writing it again would change nothing. Some thermostats end
-    their own schedule on any write.
+    Whether the thermostat already shows a setting, so writing it again would change nothing.
+
+    Some thermostats end their own schedule on any write.
 
     :param setting: The setting.
     :param state: The thermostat's state.
@@ -364,6 +372,11 @@ def _float(value: str) -> float | None:
         return float(value)
     except ValueError:
         return None
+
+
+def _native_unit(entity: Any) -> Any:
+    # Home Assistant 2026.11 renamed the climate entity's own unit ``native_temperature_unit``.
+    return getattr(entity, "native_temperature_unit", None) or getattr(entity, "temperature_unit", None)
 
 
 def _number(value: Any) -> float | None:

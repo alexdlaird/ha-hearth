@@ -5,7 +5,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
 from homeassistant.components.climate.const import (
@@ -18,12 +18,13 @@ from homeassistant.components.climate.const import (
     SERVICE_SET_HVAC_MODE,
     SERVICE_SET_TEMPERATURE,
 )
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_TEMPERATURE, CONF_SENSORS
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 from pyhearth.client import DEFAULT_RETRY_AFTER, HearthClient
 from pyhearth.exception import (
@@ -34,7 +35,6 @@ from pyhearth.exception import (
 )
 
 from custom_components.hearth.const import (
-    CONF_SENSORS,
     CONF_THERMOSTAT,
     DOMAIN,
     MAX_ATTEMPTS,
@@ -43,6 +43,8 @@ from custom_components.hearth.const import (
     REFUSED_BY_THERMOSTAT,
     SERVICE_TIMEOUT,
     SYNC_INTERVAL,
+    THERMOSTAT_MISSING_ISSUE,
+    THERMOSTAT_MISSING_REPAIR_AFTER,
     BridgeStatus,
 )
 from custom_components.hearth.exception import HearthSettingError
@@ -95,9 +97,10 @@ _SETTING_KEYS = (ATTR_HVAC_MODE, ATTR_TEMPERATURE, ATTR_TARGET_TEMP_LOW, ATTR_TA
 
 class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
     """
-    One Home Assistant's bridge to one Hearth home. Each minute, and soon after the thermostat changes, it posts the
-    thermostat and the room sensors to Hearth and applies the setting Hearth answers with, using Home Assistant's own
-    climate actions.
+    One Home Assistant's bridge to one Hearth home.
+
+    Each minute, and soon after the thermostat changes, it posts the thermostat and the room sensors to Hearth and
+    applies the setting Hearth answers with, using Home Assistant's own climate actions.
     """
 
     config_entry: "HearthConfigEntry"
@@ -124,6 +127,11 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
         self._last_synced: datetime | None = None
         self._deferred_post: CALLBACK_TYPE | None = None
         self._logged: set[BridgeStatus] = set()
+        self._missing_since: datetime | None = None
+        #: Whether a post got through to Hearth this sync.
+        self._reached = False
+        #: Whether a sync has finished since setup (until then, Hearth being unreachable fails the setup).
+        self._synced = False
 
         debouncer: Debouncer[Any] = Debouncer(hass, logger, cooldown=MIN_POST_GAP.total_seconds(), immediate=True)
         super(HearthCoordinator, self).__init__(hass,
@@ -146,6 +154,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
     async def _on_thermostat_changed(self, _event: Event[EventStateChangedData]) -> None:
         await self.async_request_refresh()
 
+    @override
     async def _async_update_data(self) -> SyncResult:
         now = dt_util.utcnow()
         if self._wait_until is not None and now < self._wait_until:
@@ -160,28 +169,37 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
         readings: list[dict[str, Any]] = []
         not_added: list[str] = []
         failed = False
+        self._reached = False
+        unreachable: HearthConnectionError | None = None
         try:
             desired, thermostat_statuses = await self._sync_thermostat()
             statuses.extend(thermostat_statuses)
         except HearthError as e:
             statuses.append(self._failure(e, now))
             failed = True
+            unreachable = e if isinstance(e, HearthConnectionError) else unreachable
         try:
             readings = [] if self._wait_until is not None else sensor_readings(self.hass, self.sensors, now)
             if readings:
                 not_added = (await self.client.post_readings(readings)).not_added
+                self._reached = True
                 if not_added:
                     statuses.append((BridgeStatus.SENSORS_NOT_ADDED, ", ".join(not_added)))
         except HearthError as e:
             statuses.append(self._failure(e, now))
             failed = True
+            unreachable = e if isinstance(e, HearthConnectionError) else unreachable
+        if not self._synced and unreachable is not None and not self._reached:
+            raise UpdateFailed(translation_domain=DOMAIN, translation_key="cannot_connect") from unreachable
 
         if not failed:
             self._wait_until = None
             self._last_synced = now
+        self._adopt_home_id()
         self._log_recoveries({status for status, _ in statuses})
         status, detail = min(statuses, key=_urgency, default=(BridgeStatus.OK, None))
 
+        self._synced = True
         return SyncResult(status=status,
                           at=now,
                           synced_at=self._last_synced,
@@ -196,6 +214,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
             return None, []
 
         state = self.hass.states.get(self.thermostat)
+        self._watch_missing(state is None, dt_util.utcnow())
         if state is None:
             return None, [(BridgeStatus.THERMOSTAT_MISSING, self.thermostat)]
         if is_placeholder(state):
@@ -205,6 +224,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
         step = setpoint_step(self.hass, state, unit)
         post = thermostat_post(state, unit, step, device_key(self.hass, self.thermostat))
         desired = await self.client.sync_thermostat(post, self._refused)
+        self._reached = True
         self._refused = None
         if not is_available(state):
             return desired, [(BridgeStatus.THERMOSTAT_UNAVAILABLE, None)]
@@ -276,6 +296,34 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
     async def _service(self, service: str, data: dict[str, Any]) -> None:
         async with asyncio.timeout(SERVICE_TIMEOUT):
             await self.hass.services.async_call(CLIMATE_DOMAIN, service, data, blocking=True)
+
+    def _watch_missing(self, missing: bool, now: datetime) -> None:
+        """
+        Raise a repair once the chosen thermostat has been missing for a while, and clear it once it's back.
+
+        A while is ``THERMOSTAT_MISSING_REPAIR_AFTER``.
+        """
+        if not missing:
+            self._missing_since = None
+            ir.async_delete_issue(self.hass, DOMAIN, THERMOSTAT_MISSING_ISSUE)
+            return
+        self._missing_since = self._missing_since or now
+        if now - self._missing_since >= THERMOSTAT_MISSING_REPAIR_AFTER:
+            ir.async_create_issue(self.hass,
+                                  DOMAIN,
+                                  THERMOSTAT_MISSING_ISSUE,
+                                  is_fixable=False,
+                                  severity=ir.IssueSeverity.WARNING,
+                                  translation_key=THERMOSTAT_MISSING_ISSUE,
+                                  translation_placeholders={"entity_id": self.thermostat or ""})
+
+    def _adopt_home_id(self) -> None:
+        """
+        Key an entry set up before Hearth named its home on the home's id, once Hearth names it.
+        """
+        home_id = self.client.home_id
+        if home_id is not None and self.config_entry.unique_id is None:
+            self.hass.config_entries.async_update_entry(self.config_entry, unique_id=home_id)
 
     def _failure(self, e: HearthError, now: datetime) -> tuple[BridgeStatus, str | None]:
         if isinstance(e, HearthAuthError):

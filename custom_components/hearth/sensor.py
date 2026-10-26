@@ -4,13 +4,14 @@ __license__ = "MIT"
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.hearth.const import DOMAIN, MANUFACTURER, NAME, SITE_URL, BridgeStatus
@@ -29,7 +30,7 @@ class HearthSensorDescription(SensorEntityDescription):
     """
 
     #: The sensor's value from a sync.
-    value: Callable[[SyncResult], Any]
+    value: Callable[[SyncResult], StateType | datetime]
     #: The sensor's attributes from a sync, if it has any.
     attributes: Callable[[SyncResult], dict[str, Any]] | None = None
 
@@ -102,13 +103,15 @@ class HearthSensor(CoordinatorEntity[HearthCoordinator], SensorEntity):
                                             configuration_url=SITE_URL)
 
     @property
-    def native_value(self) -> Any:
+    @override
+    def native_value(self) -> StateType | datetime:
         """
         The sensor's value from the last sync.
         """
         return self.entity_description.value(self.coordinator.data)
 
     @property
+    @override
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """
         The sensor's attributes from the last sync, if it has any.
