@@ -1,7 +1,7 @@
 <p align="center"><img alt="ha-hearth - A Home Assistant integration for Hearth" src="https://raw.githubusercontent.com/alexdlaird/ha-hearth/main/docs/logo.png" /></p>
 
 [![Version](https://img.shields.io/github/v/release/alexdlaird/ha-hearth)](https://github.com/alexdlaird/ha-hearth/releases)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5)](https://hacs.xyz)
+[![HACS](https://img.shields.io/badge/HACS-Default-41BDF5)](https://hacs.xyz)
 [![Coverage](https://img.shields.io/codecov/c/github/alexdlaird/ha-hearth)](https://codecov.io/gh/alexdlaird/ha-hearth)
 [![Build](https://img.shields.io/github/actions/workflow/status/alexdlaird/ha-hearth/build.yml)](https://github.com/alexdlaird/ha-hearth/actions/workflows/build.yml)
 [![GitHub License](https://img.shields.io/github/license/alexdlaird/ha-hearth)](https://github.com/alexdlaird/ha-hearth/blob/main/LICENSE)
@@ -14,10 +14,10 @@ answers with using Home Assistant's own climate actions. Home Assistant only eve
 
 `ha-hearth` requires Home Assistant 2025.12 or newer, and can be installed with [HACS](https://hacs.xyz):
 
-1. In HACS, open the menu, choose "Custom repositories", and add `https://github.com/alexdlaird/ha-hearth` as an
-   Integration.
-2. Find Hearth in HACS and download it.
-3. Restart Home Assistant.
+1. In HACS, search for Hearth and download it.
+2. Restart Home Assistant.
+
+[![Open your Home Assistant instance and open Hearth in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexdlaird&repository=ha-hearth&category=integration)
 
 That's it! Hearth is now available to add in Home Assistant.
 
