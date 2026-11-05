@@ -341,6 +341,27 @@ class TestSync(HearthTestCase):
         assert raised is not None
         assert issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE) is None
 
+    async def test_missing_thermostat_repair_cleared_once_no_thermostat_is_chosen(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, freezer: FrozenDateTimeFactory,
+            issue_registry: ir.IssueRegistry) -> None:
+        # GIVEN
+        sensors = [self.given_sensor_device(hass)]
+        self.given_hearth_answers(aioclient_mock)
+        entry = self.given_entry(hass, sensors=sensors)
+        await self.when_set_up(hass, entry)
+        await self.when_time_passes(hass, freezer, THERMOSTAT_MISSING_REPAIR_AFTER + timedelta(minutes=5))
+        raised = issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE)
+        flow = await hass.config_entries.options.async_init(entry.entry_id)
+
+        # WHEN
+        await hass.config_entries.options.async_configure(flow["flow_id"], {"sensors": sensors})
+        await hass.async_block_till_done()
+        await self.when_time_passes(hass, freezer)
+
+        # THEN
+        assert raised is not None
+        assert issue_registry.async_get_issue(DOMAIN, THERMOSTAT_MISSING_ISSUE) is None
+
     async def test_thermostat_change_posted_after_gap(self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker,
                                                       freezer: FrozenDateTimeFactory) -> None:
         # GIVEN
