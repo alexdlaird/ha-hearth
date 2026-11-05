@@ -211,6 +211,7 @@ class HearthCoordinator(DataUpdateCoordinator[SyncResult]):
 
     async def _sync_thermostat(self) -> tuple[dict[str, Any] | None, list[tuple[BridgeStatus, str | None]]]:
         if self.thermostat is None:
+            self._watch_missing(False, dt_util.utcnow())
             return None, []
 
         state = self.hass.states.get(self.thermostat)
