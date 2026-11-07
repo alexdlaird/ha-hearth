@@ -24,7 +24,7 @@ answers with using Home Assistant's own climate actions. Home Assistant only eve
 
 `ha-hearth` requires Home Assistant 2025.12 or newer, and can be installed with [HACS](https://hacs.xyz):
 
-1. In HACS, search for Hearth and download it.
+1. In HACS (or, on Home Assistant 2026.11 and newer, Settings, then Marketplace), search for Hearth and download it.
 2. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open Hearth in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexdlaird&repository=ha-hearth&category=integration)
