@@ -166,14 +166,17 @@ class HearthConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         Stop when a key belongs to a different home than the one the entry is connected to.
 
-        An entry from before Hearth named its home can't be told apart, so its key is taken as the same home's.
+        An entry from before Hearth named its home can't be told apart, so its key is taken as the same home's. When
+        Hearth no longer takes the entry's own key (its home was deleted, or the key replaced), the abort says so,
+        since removing Hearth and adding it again is then the way forward rather than a mistake.
 
         :param entry: The entry being updated.
         :param home_id: The home the new key belongs to, if Hearth said.
         """
         if home_id is not None and entry.unique_id is not None:
             await self.async_set_unique_id(home_id)
-            self._abort_if_unique_id_mismatch(reason="another_home")
+            gone = home_id != entry.unique_id and await _key_refused(self.hass, entry)
+            self._abort_if_unique_id_mismatch(reason="home_gone" if gone else "another_home")
 
 
 class HearthOptionsFlow(OptionsFlowWithReload):
@@ -252,6 +255,18 @@ async def _check_key(hass: HomeAssistant,
     except Exception:
         logger.exception("An unexpected error occurred checking the Hearth API key")
         return KeyCheck("unknown")
+
+
+async def _key_refused(hass: HomeAssistant, entry: "HearthConfigEntry") -> bool:
+    """
+    Whether Hearth no longer takes the entry's own key: its home was deleted, or the key replaced.
+
+    :param hass: Home Assistant.
+    :param entry: The entry whose key is checked.
+    :return: ``True`` when Hearth turns the key down (not when it can't be reached).
+    """
+    check = await _check_key(hass, entry.data[CONF_API_KEY], entry.data.get(CONF_API_URL) or DEFAULT_API_URL)
+    return check.error == "invalid_auth"
 
 
 def _choice_error(choice: Mapping[str, Any]) -> str | None:

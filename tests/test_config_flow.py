@@ -7,7 +7,7 @@ import pytest
 from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker, AiohttpClientMockResponse
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -230,6 +230,31 @@ class TestHome(HearthTestCase):
         assert FlowResultType.ABORT == result["type"]
         assert "another_home" == result["reason"]
         assert self.API_KEY == entry.data["api_key"], "the entry stays on its own home's key"
+
+    @pytest.mark.parametrize("source", ["reauth", "reconfigure"])
+    async def test_key_for_another_home_when_this_home_is_gone_says_to_add_hearth_again(
+            self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, source: str) -> None:
+        # GIVEN
+        entry = self.given_entry(hass, unique_id="home-1")
+
+        async def answer(method: str, url: Any, data: Any) -> AiohttpClientMockResponse:
+            supplied = aioclient_mock.mock_calls[-1][3]["Authorization"]
+            if supplied == f"Bearer {self.API_KEY}":
+                return AiohttpClientMockResponse(method, url, status=401)
+            return AiohttpClientMockResponse(method, url, status=204, headers=self.OTHER_HOME)
+
+        aioclient_mock.clear_requests()
+        aioclient_mock.post(self.READINGS_URL, side_effect=answer)
+        flow = await (entry.start_reauth_flow(hass) if source == "reauth" else entry.start_reconfigure_flow(hass))
+
+        # WHEN
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"api_key": "new-homes-key"})
+
+        # THEN
+        assert FlowResultType.ABORT == result["type"]
+        assert "home_gone" == result["reason"], \
+            "owner, 2026-11-07: an account deleted and made again read as a mistaken key"
+        assert self.API_KEY == entry.data["api_key"], "still not moved: removing and adding Hearth again is the way"
 
     async def test_new_key_for_the_same_home_taken(
             self, hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
