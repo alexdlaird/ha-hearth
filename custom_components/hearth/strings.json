@@ -59,6 +59,7 @@
     "abort": {
       "reauth_successful": "The key was updated.",
       "another_home": "That key belongs to a different Hearth home. Use this home's key, or remove the integration and add the other home.",
+      "home_gone": "The Hearth home this was connected to no longer exists. Remove Hearth here and add it again with your new key.",
       "already_configured": "This Hearth home is already set up.",
       "single_instance_allowed": "Hearth is already set up. Each Home Assistant connects one Hearth home.",
       "reconfigure_successful": "The connection was updated."

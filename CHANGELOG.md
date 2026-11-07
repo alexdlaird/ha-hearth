@@ -6,6 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/alexdlaird/ha-hearth/compare/1.1.3...HEAD)
 
+### Changed
+
+- Reconfiguring with a different home's key, when the home Hearth was set up with no longer exists, says to remove
+  Hearth and add it again, rather than that the key belongs to another home.
+
 ## [1.1.3](https://github.com/alexdlaird/ha-hearth/compare/1.1.2...1.1.3) - 2026-11-07
 
 ### Fixed
