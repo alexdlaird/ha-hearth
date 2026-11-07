@@ -10,6 +10,16 @@
 (and, optionally, the thermostat) that Home Assistant already has, and applies any thermostat settings Hearth
 answers with using Home Assistant's own climate actions. Home Assistant only ever calls out to Hearth.
 
+<p align="center">
+  <a href="https://apps.apple.com/app/id6816728401"><img src="https://www.meethearth.app/img/app-store-badge.png" alt="Download on the App Store" height="50" /></a>
+  &nbsp;
+  <a href="https://play.google.com/store/apps/details?id=com.alexdlaird.hearth"><img src="https://www.meethearth.app/img/google-play-badge.png" alt="Get it on Google Play" height="50" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.patreon.com/alexdlaird/membership"><img src="https://www.heliumedu.com/img/support-patreon.png" alt="Support on Patreon" height="30" /></a>
+</p>
+
 ## Installation
 
 `ha-hearth` requires Home Assistant 2025.12 or newer, and can be installed with [HACS](https://hacs.xyz):

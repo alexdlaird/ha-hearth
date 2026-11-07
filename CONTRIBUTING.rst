@@ -14,7 +14,7 @@ If you would like to contribute to the code, the process is pretty simple:
    ``make test HA_TEST_HARNESS=0.13.298`` for 2025.12.0 on Python 3.13 (this also pins ``pycares<5``, which those
    releases need).
 5. Ensure no linting errors were introduced by running ``make check``.
-6. Submit a `pull requests <https://help.github.com/en/articles/creating-a-pull-request-from-a-fork>`_ to get the changes merged.
+6. Submit a `pull request <https://help.github.com/en/articles/creating-a-pull-request-from-a-fork>`_ to get the changes merged.
 
 Also be sure to review the `Code of Conduct <https://github.com/alexdlaird/ha-hearth?tab=coc-ov-file#contributor-covenant-code-of-conduct>`_ before
 submitting issues or pull requests.

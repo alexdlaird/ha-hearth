@@ -40,15 +40,15 @@ check: install
 	)
 
 validate-release:
-	@if [[ "${VERSION}" == "" ]]; then echo "VERSION is not set" & exit 1 ; fi
+	@if [[ "${VERSION}" == "" ]]; then echo "VERSION is not set"; exit 1 ; fi
 
-	@if [[ $$(grep "\"version\": \"${VERSION}\"" custom_components/hearth/manifest.json) == "" ]] ; then echo "Version not bumped in custom_components/hearth/manifest.json" & exit 1 ; fi
+	@if [[ $$(grep "\"version\": \"${VERSION}\"" custom_components/hearth/manifest.json) == "" ]] ; then echo "Version not bumped in custom_components/hearth/manifest.json"; exit 1 ; fi
 
 	@if [ -f SECURITY.md ]; then \
 		MAJOR_MINOR=$$(echo "${VERSION}" | cut -d. -f1-2); \
-		if [[ $$(grep "| $${MAJOR_MINOR}\.x" SECURITY.md) == "" ]] ; then echo "SECURITY.md missing supported-versions entry for $${MAJOR_MINOR}.x" & exit 1 ; fi; \
+		if [[ $$(grep "| $${MAJOR_MINOR}\.x" SECURITY.md) == "" ]] ; then echo "SECURITY.md missing supported-versions entry for $${MAJOR_MINOR}.x"; exit 1 ; fi; \
 	fi
 
 core-check:
-	@if [[ "${CORE}" == "" ]]; then echo "CORE is not set (a home-assistant/core checkout)" & exit 1 ; fi
+	@if [[ "${CORE}" == "" ]]; then echo "CORE is not set (a home-assistant/core checkout)"; exit 1 ; fi
 	./scripts/core_check.sh "${CORE}"
